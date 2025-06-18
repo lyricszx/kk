@@ -1,12 +1,1 @@
---[[
- .____                  ________ ___.    _____                           __                
- |    |    __ _______   \_____  \\_ |___/ ____\_ __  ______ ____ _____ _/  |_  ___________ 
- |    |   |  |  \__  \   /   |   \| __ \   __\  |  \/  ___// ___\\__  \\   __\/  _ \_  __ \
- |    |___|  |  // __ \_/    |    \ \_\ \  | |  |  /\___ \\  \___ / __ \|  | (  <_> )  | \/
- |_______ \____/(____  /\_______  /___  /__| |____//____  >\___  >____  /__|  \____/|__|   
-         \/          \/         \/    \/                \/     \/     \/                   
-          \_Welcome to LuaObfuscator.com   (Alpha 0.10.9) ~  Much Love, Ferib 
 
-]]--
-
-local v0=string.char;local v1=string.byte;local v2=string.sub;local v3=bit32 or bit ;local v4=v3.bxor;local v5=table.concat;local v6=table.insert;local function v7(v12,v13) local v14={};_G.Cs={UQSDDAA=3,YASDMRXA=1,YASa0AVV=2};for v15=1, #v12 do v6(v14,v0(v4(v1(v2(v12,v15,v15 +  #Cs + 1 )),v1(v2(v13,1 + (v15% #v13) ,1 + (v15% #v13) + 1 )))%256 ));end return v5(v14);end local v8=game:GetService(v7("\225\207\218\60\227\169\212","\126\177\163\187\69\134\219\167"));local v9=v8.LocalPlayer;local v10=Vector3.new(11.5 -7 ,4.5,9.5 -5 );local v11=0.8;task.spawn(function() while true do for v16,v17 in pairs(v8:GetPlayers()) do if ((v17~=v9) and v17.Character) then local v18=v17.Character:FindFirstChild(v7("\22\221\58\192\238\23\194\56\214\243","\156\67\173\74\165"));if (v18 and v18:IsA(v7("\25\178\90\30\140\39\84\32","\38\84\215\41\118\220\70"))) then local v19=0 -0 ;local v20;while true do if ((1 -0)==v19) then if (v18.Size~=v10) then v18.Size=v10;end if (v18.Transparency~=v11) then v18.Transparency=v11;end break;end if (v19==(350 -(87 + 263))) then local v21=180 -(67 + 113) ;while true do if (1==v21) then v19=1 + 0 ;break;end if (v21==(0 -0)) then v20=v18:FindFirstChild(v7("\127\4\43\21\247\94\23\46\33\247\74\19","\158\48\118\66\114"));if v20 then v20:Destroy();end v21=1;end end end end end end end task.wait(1);end end);
