@@ -1,95 +1,109 @@
-(function(){
-    // Função para simular tecla
-    function pressKey(key){
-        document.dispatchEvent(new KeyboardEvent("keydown",{key:key,code:key.toUpperCase(),which:key.charCodeAt(0),keyCode:key.charCodeAt(0),bubbles:true}));
-        setTimeout(()=>{
-            document.dispatchEvent(new KeyboardEvent("keyup",{key:key,code:key.toUpperCase(),which:key.charCodeAt(0),keyCode:key.charCodeAt(0),bubbles:true}));
-        },50);
+// Hordes.io Mobile HUD v2
+(function () {
+    alert("✅ HUD Mobile ativado!");
+
+    // Função p/ simular tecla
+    function pressKey(key, type) {
+        document.dispatchEvent(new KeyboardEvent(type, { key }));
     }
 
-    // Container HUD
-    const hud=document.createElement("div");
-    hud.style.position="fixed";
-    hud.style.top="0";
-    hud.style.left="0";
-    hud.style.width="100%";
-    hud.style.height="100%";
-    hud.style.zIndex="999999";
-    hud.style.pointerEvents="none"; // 🔥 fundo clicável
+    // Container geral do HUD
+    const hud = document.createElement("div");
+    hud.style.position = "fixed";
+    hud.style.top = "0";
+    hud.style.left = "0";
+    hud.style.width = "100%";
+    hud.style.height = "100%";
+    hud.style.zIndex = "9999";
+    hud.style.pointerEvents = "none"; // deixa fundo jogável
     document.body.appendChild(hud);
 
-    // Função criar botão
-    function addButton(txt,key,x,y){
-        const btn=document.createElement("button");
-        btn.innerText=txt;
-        btn.style.position="absolute";
-        btn.style.left=x+"px";
-        btn.style.bottom=y+"px";
-        btn.style.width="65px";
-        btn.style.height="65px";
-        btn.style.borderRadius="16px";
-        btn.style.fontSize="22px";
-        btn.style.background="rgba(0,0,0,0.6)";
-        btn.style.color="#fff";
-        btn.style.border="none";
-        btn.style.pointerEvents="auto"; // 🔥 botão clicável
-        btn.onclick=()=>pressKey(key);
+    // Função p/ criar botão
+    function addButton(text, key, right, bottom) {
+        const btn = document.createElement("div");
+        btn.innerText = text;
+        btn.style.position = "absolute";
+        btn.style.right = right + "px";
+        btn.style.bottom = bottom + "px";
+        btn.style.width = "60px";
+        btn.style.height = "60px";
+        btn.style.borderRadius = "12px";
+        btn.style.background = "rgba(0,0,0,0.6)";
+        btn.style.color = "#fff";
+        btn.style.fontSize = "22px";
+        btn.style.display = "flex";
+        btn.style.alignItems = "center";
+        btn.style.justifyContent = "center";
+        btn.style.pointerEvents = "auto"; // habilita clique
+        btn.style.userSelect = "none";
+
+        // eventos de toque
+        btn.addEventListener("touchstart", () => pressKey(key, "keydown"));
+        btn.addEventListener("touchend", () => pressKey(key, "keyup"));
+
         hud.appendChild(btn);
     }
 
-    // Joystick
-    const joyOuter=document.createElement("div");
-    const joyInner=document.createElement("div");
-    joyOuter.style.position="absolute";
-    joyOuter.style.left="40px";
-    joyOuter.style.bottom="40px";
-    joyOuter.style.width="120px";
-    joyOuter.style.height="120px";
-    joyOuter.style.borderRadius="50%";
-    joyOuter.style.background="rgba(255,255,255,0.1)";
-    joyOuter.style.pointerEvents="auto";
-    joyInner.style.width="60px";
-    joyInner.style.height="60px";
-    joyInner.style.margin="30px";
-    joyInner.style.borderRadius="50%";
-    joyInner.style.background="rgba(150,0,255,0.6)";
-    joyOuter.appendChild(joyInner);
+    // Botões de skills
+    addButton("1", "1", 180, 120);
+    addButton("2", "2", 110, 120);
+    addButton("3", "3", 40, 120);
+    addButton("Q", "q", 180, 50);
+    addButton("E", "e", 110, 50);
+    addButton("R", "r", 40, 50);
+    addButton("F", "f", 250, 85);
+    addButton("⚔️", " ", 320, 85); // espaço -> ataque
+
+    // Joystick virtual
+    const joyOuter = document.createElement("div");
+    joyOuter.style.position = "absolute";
+    joyOuter.style.left = "40px";
+    joyOuter.style.bottom = "60px";
+    joyOuter.style.width = "140px";
+    joyOuter.style.height = "140px";
+    joyOuter.style.borderRadius = "50%";
+    joyOuter.style.background = "rgba(255,255,255,0.1)";
+    joyOuter.style.pointerEvents = "auto";
     hud.appendChild(joyOuter);
 
-    let dragging=false, startX=0,startY=0;
-    joyOuter.addEventListener("touchstart",e=>{
-        dragging=true;
-        startX=e.touches[0].clientX;
-        startY=e.touches[0].clientY;
-    });
-    joyOuter.addEventListener("touchmove",e=>{
-        if(!dragging) return;
-        const dx=e.touches[0].clientX-startX;
-        const dy=e.touches[0].clientY-startY;
-        const dist=Math.min(40,Math.hypot(dx,dy));
-        const angle=Math.atan2(dy,dx);
-        joyInner.style.transform=`translate(${Math.cos(angle)*dist}px,${Math.sin(angle)*dist}px)`;
+    const joyInner = document.createElement("div");
+    joyInner.style.width = "60px";
+    joyInner.style.height = "60px";
+    joyInner.style.margin = "40px";
+    joyInner.style.borderRadius = "50%";
+    joyInner.style.background = "rgba(100,100,255,0.7)";
+    joyOuter.appendChild(joyInner);
 
-        // Direções
-        const threshold=20;
-        if(dy<-threshold) pressKey("w");
-        if(dy>threshold) pressKey("s");
-        if(dx<-threshold) pressKey("a");
-        if(dx>threshold) pressKey("d");
-    });
-    joyOuter.addEventListener("touchend",()=>{
-        dragging=false;
-        joyInner.style.transform="translate(0,0)";
+    let joyActive = false, joyCenterX = 0, joyCenterY = 0;
+
+    joyOuter.addEventListener("touchstart", e => {
+        joyActive = true;
+        const rect = joyOuter.getBoundingClientRect();
+        joyCenterX = rect.left + rect.width / 2;
+        joyCenterY = rect.top + rect.height / 2;
     });
 
-    // Botões de skills
-    addButton("1","1",window.innerWidth-240,120);
-    addButton("2","2",window.innerWidth-160,120);
-    addButton("3","3",window.innerWidth-80,120);
-    addButton("4","4",window.innerWidth-240,40);
-    addButton("Q","q",window.innerWidth-160,40);
-    addButton("E","e",window.innerWidth-80,40);
-    addButton("R","r",window.innerWidth-240,200);
-    addButton("F","f",window.innerWidth-160,200);
+    joyOuter.addEventListener("touchmove", e => {
+        if (!joyActive) return;
+        const touch = e.touches[0];
+        const dx = touch.clientX - joyCenterX;
+        const dy = touch.clientY - joyCenterY;
+
+        // reset
+        ["w", "a", "s", "d"].forEach(k => pressKey(k, "keyup"));
+
+        if (dy < -20) pressKey("w", "keydown");
+        if (dy > 20) pressKey("s", "keydown");
+        if (dx < -20) pressKey("a", "keydown");
+        if (dx > 20) pressKey("d", "keydown");
+
+        joyInner.style.transform = `translate(${dx * 0.3}px, ${dy * 0.3}px)`;
+    });
+
+    joyOuter.addEventListener("touchend", e => {
+        joyActive = false;
+        ["w", "a", "s", "d"].forEach(k => pressKey(k, "keyup"));
+        joyInner.style.transform = "translate(0,0)";
+    });
 
 })();
