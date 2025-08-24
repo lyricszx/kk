@@ -1,1 +1,60 @@
-kk
+// Hordes.io
+(function() {
+    alert("✅ Hordes.io Mobile HUD carregado!");
+
+    function pressKey(key) {
+        document.dispatchEvent(new KeyboardEvent("keydown", {key}));
+        setTimeout(() => {
+            document.dispatchEvent(new KeyboardEvent("keyup", {key}));
+        }, 150);
+    }
+
+    // Criar container geral
+    const hud = document.createElement("div");
+    hud.style.position = "fixed";
+    hud.style.bottom = "10px";
+    hud.style.left = "10px";
+    hud.style.zIndex = "999999";
+    hud.style.userSelect = "none";
+    document.body.appendChild(hud);
+
+    // Função helper p/ criar botões
+    function addButton(text, key, x, y) {
+        const btn = document.createElement("button");
+        btn.innerText = text;
+        btn.style.position = "absolute";
+        btn.style.left = x + "px";
+        btn.style.bottom = y + "px";
+        btn.style.width = "60px";
+        btn.style.height = "60px";
+        btn.style.borderRadius = "12px";
+        btn.style.fontSize = "20px";
+        btn.style.background = "#6c5ce7";
+        btn.style.color = "#fff";
+        btn.style.border = "none";
+        btn.style.opacity = "0.9";
+        btn.onclick = () => pressKey(key);
+        hud.appendChild(btn);
+    }
+
+    // Movimentos (WASD)
+    addButton("⬆️", "w", 70, 140);
+    addButton("⬅️", "a", 10, 80);
+    addButton("⬇️", "s", 70, 20);
+    addButton("➡️", "d", 130, 80);
+
+    // Skills principais
+    addButton("Q", "q", 250, 20);
+    addButton("E", "e", 320, 20);
+    addButton("R", "r", 390, 20);
+    addButton("F", "f", 460, 20);
+
+    // Números (skills extras)
+    addButton("1", "1", 250, 90);
+    addButton("2", "2", 320, 90);
+    addButton("3", "3", 390, 90);
+    addButton("4", "4", 460, 90);
+
+    // Auto-attack (space)
+    addButton("⚔️", " ", 560, 50);
+})();
