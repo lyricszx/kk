@@ -1,60 +1,170 @@
-// Hordes.io
-(function() {
-    alert("✅ Hordes.io Mobile HUD carregado!");
+// == Hordes.io Mobile HUD – estilo "HaxballMobile" (overlay/joystick) ==
+(function () {
+  // ---------- CONFIG ----------
+  const SCALE = 1.0;            // 0.8 a 1.2 conforme seu gosto/tela (Moto G73 fica bom em 1.0)
+  const JOY_RADIUS = 80;        // raio do joystick (px, antes do SCALE)
+  const DEADZONE = 0.25;        // zona morta do joystick (0–1 do raio)
+  const BTN = { size: 66, gap: 10 }; // tamanho dos botões (px, antes do SCALE)
+  const Z = 999999999;
 
-    function pressKey(key) {
-        document.dispatchEvent(new KeyboardEvent("keydown", {key}));
-        setTimeout(() => {
-            document.dispatchEvent(new KeyboardEvent("keyup", {key}));
-        }, 150);
+  // ---------- UTIL: CSS ----------
+  const css = `
+  #hm-root { position: fixed; inset: 0; pointer-events:none; z-index:${Z}; touch-action:none; }
+  #hm-joy { position: absolute; left: 18px; bottom: 22px; width:${JOY_RADIUS*2*SCALE}px; height:${JOY_RADIUS*2*SCALE}px; pointer-events:auto; }
+  #hm-joy-base, #hm-joy-knob { position:absolute; border-radius:50%; }
+  #hm-joy-base { left:0; top:0; width:100%; height:100%; background:rgba(255,255,255,.08); outline:2px solid rgba(255,255,255,.15); backdrop-filter: blur(2px); }
+  #hm-joy-knob { width:${JOY_RADIUS*1.2*SCALE}px; height:${JOY_RADIUS*1.2*SCALE}px; left: calc(50% - ${JOY_RADIUS*0.6*SCALE}px); top: calc(50% - ${JOY_RADIUS*0.6*SCALE}px);
+                 background:rgba(108,92,231,.9); box-shadow:0 6px 20px rgba(0,0,0,.35); }
+  .hm-btn { position:absolute; width:${BTN.size*SCALE}px; height:${BTN.size*SCALE}px; border-radius:16px; background:rgba(20,20,20,.65);
+            color:#fff; font-weight:700; font-size:${24*SCALE}px; border:1px solid rgba(255,255,255,.18);
+            display:flex; align-items:center; justify-content:center; pointer-events:auto; user-select:none; -webkit-user-select:none; }
+  .hm-btn:active { transform:scale(.97); }
+  #hm-pads { position:absolute; right: 18px; bottom: 18px; width:${(BTN.size*3 + BTN.gap*2)*SCALE}px; height:${(BTN.size*3 + BTN.gap*2)*SCALE}px; }
+  #hm-attack { position:absolute; right: ${(BTN.size*3 + BTN.gap*2 + 20)*SCALE}px; bottom: ${20*SCALE}px;
+               width:${(BTN.size*1.2)*SCALE}px; height:${(BTN.size*1.2)*SCALE}px; border-radius:50%; background:rgba(108,92,231,.9); font-size:${28*SCALE}px; }
+  #hm-toggle { position:absolute; left: 10px; top: 10px; width:${36*SCALE}px; height:${36*SCALE}px; border-radius:10px; background:rgba(0,0,0,.45);
+               color:#fff; font-size:${18*SCALE}px; pointer-events:auto; display:flex; align-items:center; justify-content:center; }
+  #hm-toast { position:absolute; left:50%; transform:translateX(-50%); top: 12px; background:rgba(0,0,0,.6); color:#fff; padding:${8*SCALE}px ${12*SCALE}px; border-radius:10px; font-size:${14*SCALE}px; }
+  `;
+  const style = document.createElement('style'); style.textContent = css; document.documentElement.appendChild(style);
+
+  // ---------- ROOT / TOAST ----------
+  const root = document.createElement('div'); root.id = 'hm-root'; document.body.appendChild(root);
+  const toast = document.createElement('div'); toast.id = 'hm-toast'; toast.textContent = 'Hordes.io Mobile HUD ativo'; root.appendChild(toast);
+  setTimeout(()=> toast.remove(), 1800);
+
+  // ---------- KEY EMIT ----------
+  const KC = { 'W':87,'A':65,'S':83,'D':68,'Q':81,'E':69,'R':82,'F':70,'1':49,'2':50,'3':51,'4':52,'SPACE':32 };
+  const KEYDATA = {
+    'W':{key:'w',code:'KeyW',keyCode:KC.W}, 'A':{key:'a',code:'KeyA',keyCode:KC.A}, 'S':{key:'s',code:'KeyS',keyCode:KC.S}, 'D':{key:'d',code:'KeyD',keyCode:KC.D},
+    'Q':{key:'q',code:'KeyQ',keyCode:KC.Q}, 'E':{key:'e',code:'KeyE',keyCode:KC.E}, 'R':{key:'r',code:'KeyR',keyCode:KC.R}, 'F':{key:'f',code:'KeyF',keyCode:KC.F},
+    '1':{key:'1',code:'Digit1',keyCode:KC['1']}, '2':{key:'2',code:'Digit2',keyCode:KC['2']}, '3':{key:'3',code:'Digit3',keyCode:KC['3']}, '4':{key:'4',code:'Digit4',keyCode:KC['4']},
+    'SPACE':{key:' ',code:'Space',keyCode:KC.SPACE}
+  };
+  const pressed = new Set();
+
+  function dispatchKey(type, id) {
+    const k = KEYDATA[id]; if(!k) return;
+    const ev = new KeyboardEvent(type, { key:k.key, code:k.code, keyCode:k.keyCode, which:k.keyCode, bubbles:true, cancelable:true });
+    // for engines que ainda verificam keyCode/which:
+    Object.defineProperty(ev, 'keyCode', {get:()=>k.keyCode});
+    Object.defineProperty(ev, 'which', {get:()=>k.keyCode});
+    // despacha amplo
+    document.dispatchEvent(ev);
+    window.dispatchEvent(ev);
+    const active = document.activeElement;
+    if (active && active !== document.body) active.dispatchEvent(ev);
+  }
+  function hold(id, on) {
+    if (on) {
+      if (!pressed.has(id)) { pressed.add(id); dispatchKey('keydown', id); }
+    } else {
+      if (pressed.has(id)) { pressed.delete(id); dispatchKey('keyup', id); }
     }
+  }
+  window.addEventListener('pagehide', () => { pressed.forEach(k=>hold(k,false)); });
 
-    // Criar container geral
-    const hud = document.createElement("div");
-    hud.style.position = "fixed";
-    hud.style.bottom = "10px";
-    hud.style.left = "10px";
-    hud.style.zIndex = "999999";
-    hud.style.userSelect = "none";
-    document.body.appendChild(hud);
+  // ---------- JOYSTICK ----------
+  const joy = document.createElement('div'); joy.id='hm-joy';
+  joy.innerHTML = `<div id="hm-joy-base"></div><div id="hm-joy-knob"></div>`;
+  root.appendChild(joy);
 
-    // Função helper p/ criar botões
-    function addButton(text, key, x, y) {
-        const btn = document.createElement("button");
-        btn.innerText = text;
-        btn.style.position = "absolute";
-        btn.style.left = x + "px";
-        btn.style.bottom = y + "px";
-        btn.style.width = "60px";
-        btn.style.height = "60px";
-        btn.style.borderRadius = "12px";
-        btn.style.fontSize = "20px";
-        btn.style.background = "#6c5ce7";
-        btn.style.color = "#fff";
-        btn.style.border = "none";
-        btn.style.opacity = "0.9";
-        btn.onclick = () => pressKey(key);
-        hud.appendChild(btn);
-    }
+  const base = joy.querySelector('#hm-joy-base');
+  const knob = joy.querySelector('#hm-joy-knob');
+  const R = JOY_RADIUS*SCALE;
+  let joyActive = false, pid = null, cx = 0, cy = 0;
 
-    // Movimentos (WASD)
-    addButton("⬆️", "w", 70, 140);
-    addButton("⬅️", "a", 10, 80);
-    addButton("⬇️", "s", 70, 20);
-    addButton("➡️", "d", 130, 80);
+  function setKnob(dx, dy) {
+    knob.style.left = (R + dx - knob.offsetWidth/2) + 'px';
+    knob.style.top  = (R + dy - knob.offsetHeight/2) + 'px';
+  }
+  function stopJoy() {
+    joyActive = false; pid = null; setKnob(0,0);
+    ['W','A','S','D'].forEach(k=>hold(k,false));
+  }
 
-    // Skills principais
-    addButton("Q", "q", 250, 20);
-    addButton("E", "e", 320, 20);
-    addButton("R", "r", 390, 20);
-    addButton("F", "f", 460, 20);
+  base.addEventListener('pointerdown', e => {
+    e.preventDefault(); base.setPointerCapture(e.pointerId);
+    joyActive = true; pid = e.pointerId;
+    const rect = base.getBoundingClientRect(); cx = rect.left + rect.width/2; cy = rect.top + rect.height/2;
+  }, {passive:false});
 
-    // Números (skills extras)
-    addButton("1", "1", 250, 90);
-    addButton("2", "2", 320, 90);
-    addButton("3", "3", 390, 90);
-    addButton("4", "4", 460, 90);
+  base.addEventListener('pointermove', e => {
+    if (!joyActive || e.pointerId !== pid) return;
+    const x = e.clientX - cx, y = e.clientY - cy;
+    const dist = Math.hypot(x,y);
+    const max = R;
+    const scale = dist > max ? max/dist : 1;
+    const dx = x*scale, dy = y*scale;
+    setKnob(dx, dy);
 
-    // Auto-attack (space)
-    addButton("⚔️", " ", 560, 50);
+    const nx = dx/max, ny = dy/max; // -1..1
+    const th = DEADZONE;
+    hold('W', -ny > th);
+    hold('S',  ny > th);
+    hold('A', -nx > th);
+    hold('D',  nx > th);
+  }, {passive:false});
+
+  ['pointerup','pointercancel','lostpointercapture','pointerleave'].forEach(ev=>{
+    base.addEventListener(ev, e => { if (e.pointerId === pid) stopJoy(); }, {passive:true});
+  });
+
+  // ---------- PAD DE BOTÕES (direita) ----------
+  const pads = document.createElement('div'); pads.id = 'hm-pads'; root.appendChild(pads);
+
+  // helper
+  function btn(label, id, col, row) {
+    const b = document.createElement('div');
+    b.className = 'hm-btn';
+    const s = BTN.size*SCALE, g = BTN.gap*SCALE;
+    b.style.left = (col*(s+g)) + 'px';
+    b.style.top  = (row*(s+g)) + 'px';
+    b.textContent = label;
+
+    // segura enquanto pressionado
+    b.addEventListener('pointerdown', e => { e.preventDefault(); b.setPointerCapture(e.pointerId); hold(id,true); }, {passive:false});
+    ['pointerup','pointercancel','lostpointercapture','pointerleave'].forEach(ev => {
+      b.addEventListener(ev, () => hold(id,false), {passive:true});
+    });
+
+    pads.appendChild(b);
+  }
+
+  // layout (3x3): linha 0 = 1,2,3 | linha 1 = Q,E,R | linha 2 = F,4,(vazio)
+  btn('1','1',0,0); btn('2','2',1,0); btn('3','3',2,0);
+  btn('Q','Q',0,1); btn('E','E',1,1); btn('R','R',2,1);
+  btn('F','F',0,2); btn('4','4',1,2);
+
+  // Ataque (Espaço) – botão grande circular
+  const attack = document.createElement('div'); attack.id='hm-attack'; attack.className='hm-btn'; attack.textContent='⚔';
+  attack.addEventListener('pointerdown', e => { e.preventDefault(); attack.setPointerCapture(e.pointerId); hold('SPACE', true); }, {passive:false});
+  ['pointerup','pointercancel','lostpointercapture','pointerleave'].forEach(ev=>{
+    attack.addEventListener(ev, () => hold('SPACE', false), {passive:true});
+  });
+  root.appendChild(attack);
+
+  // ---------- TOGGLE HUD ----------
+  const toggle = document.createElement('div'); toggle.id='hm-toggle'; toggle.textContent='☰';
+  let visible = true;
+  toggle.onclick = () => {
+    visible = !visible;
+    joy.style.display = visible ? '' : 'none';
+    pads.style.display = visible ? '' : 'none';
+    attack.style.display = visible ? '' : 'none';
+  };
+  root.appendChild(toggle);
+
+  // ---------- BLOQUEIOS/MELHORIAS ----------
+  // Evita scroll/zoom acidental
+  ['touchmove','gesturestart','gesturechange','gestureend'].forEach(ev=>{
+    window.addEventListener(ev, e => { e.preventDefault(); }, {passive:false});
+  });
+  // Evita texto selecionado/aperto longo
+  document.addEventListener('selectstart', e => { if (e.target.closest('#hm-root')) e.preventDefault(); }, {passive:false});
+  // Fecha todas as teclas se usuário alternar abas
+  document.addEventListener('visibilitychange', ()=> { if (document.hidden) pressed.forEach(k=>hold(k,false)); });
+
+  // ---------- FIM ----------
+  console.log('[Hordes.io Mobile HUD] pronto.');
 })();
