@@ -1,153 +1,128 @@
 (function() {
-  // ========== CSS DO HUD ==========
+  // ======= Estilos =======
   const style = document.createElement("style");
   style.innerHTML = `
-    #mobileHUD {
+    #hud-container {
       position: fixed;
-      top: 0;
-      left: 0;
-      width: 100vw;
-      height: 100vh;
-      pointer-events: none; /* Não bloqueia clique no fundo */
+      top: 0; left: 0; width: 100%; height: 100%;
+      pointer-events: none; /* não bloqueia cliques no jogo */
       z-index: 9999;
     }
-    .hudButton {
-      pointer-events: auto;
+    .hud-btn {
       position: absolute;
-      width: 64px;
-      height: 64px;
-      border-radius: 12px;
+      width: 70px; height: 70px;
+      border-radius: 15px;
       background: rgba(0,0,0,0.6);
       color: white;
-      font-size: 20px;
+      font-size: 22px;
       font-weight: bold;
-      display: flex;
-      justify-content: center;
-      align-items: center;
+      border: 2px solid rgba(255,255,255,0.2);
+      display: flex; justify-content: center; align-items: center;
+      pointer-events: auto; /* botão clicável */
       user-select: none;
     }
-    #joystickBase {
+    #joystick {
       position: absolute;
-      left: 40px;
-      bottom: 40px;
-      width: 120px;
-      height: 120px;
+      left: 8%; bottom: 18%;
+      width: 160px; height: 160px;
       border-radius: 50%;
-      background: rgba(0,0,0,0.4);
+      background: rgba(255,255,255,0.1);
       pointer-events: auto;
       touch-action: none;
     }
-    #joystickStick {
+    #stick {
       position: absolute;
-      left: 35px;
-      top: 35px;
-      width: 50px;
-      height: 50px;
+      left: 50%; top: 50%;
+      width: 70px; height: 70px;
       border-radius: 50%;
-      background: rgba(150,150,255,0.9);
-      pointer-events: none;
+      background: rgba(150,100,255,0.9);
+      transform: translate(-50%,-50%);
     }
   `;
   document.head.appendChild(style);
 
-  // ========== HUD ==========
+  // ======= HUD =======
   const hud = document.createElement("div");
-  hud.id = "mobileHUD";
+  hud.id = "hud-container";
   document.body.appendChild(hud);
 
-  // Botão helper
-  function createButton(label, x, y, key) {
+  // Função de tecla
+  function triggerKey(key, type="keydown") {
+    document.dispatchEvent(new KeyboardEvent(type, {key, code: key, bubbles:true}));
+  }
+
+  // Criar botões
+  const buttons = [
+    {label:"1", key:"1", x:"80%", y:"35%"},
+    {label:"2", key:"2", x:"90%", y:"35%"},
+    {label:"3", key:"3", x:"80%", y:"50%"},
+    {label:"4", key:"4", x:"90%", y:"50%"},
+    {label:"Q", key:"q", x:"80%", y:"65%"},
+    {label:"E", key:"e", x:"90%", y:"65%"},
+    {label:"R", key:"r", x:"80%", y:"80%"},
+    {label:"F", key:"f", x:"90%", y:"80%"},
+  ];
+  buttons.forEach(b=>{
     const btn = document.createElement("div");
-    btn.className = "hudButton";
-    btn.innerText = label;
-    btn.style.right = x + "px";
-    btn.style.bottom = y + "px";
+    btn.className = "hud-btn";
+    btn.innerText = b.label;
+    btn.style.left = b.x;
+    btn.style.top = b.y;
+    btn.addEventListener("touchstart", e=>{
+      e.preventDefault();
+      triggerKey(b.key,"keydown");
+    });
+    btn.addEventListener("touchend", e=>{
+      e.preventDefault();
+      triggerKey(b.key,"keyup");
+    });
     hud.appendChild(btn);
-
-    let holding = false;
-    let interval = null;
-
-    const pressKey = () => {
-      document.dispatchEvent(new KeyboardEvent("keydown", {key: key}));
-    };
-    const releaseKey = () => {
-      document.dispatchEvent(new KeyboardEvent("keyup", {key: key}));
-    };
-
-    btn.addEventListener("touchstart", e => {
-      e.preventDefault();
-      holding = true;
-      pressKey();
-      interval = setInterval(pressKey, 120); // segurar repete
-    });
-
-    btn.addEventListener("touchend", e => {
-      e.preventDefault();
-      holding = false;
-      clearInterval(interval);
-      releaseKey();
-    });
-  }
-
-  // Criando botões de skills
-  createButton("1", 200, 200, "1");
-  createButton("2", 270, 200, "2");
-  createButton("3", 340, 200, "3");
-  createButton("Q", 200, 120, "q");
-  createButton("E", 270, 120, "e");
-  createButton("R", 340, 120, "r");
-  createButton("F", 200, 40, "f");
-  createButton("4", 270, 40, "4");
-
-  // Botão ataque (espaço)
-  createButton("⚔", 100, 120, " ");
-
-  // ========== JOYSTICK ==========
-  const joyBase = document.createElement("div");
-  joyBase.id = "joystickBase";
-  const joyStick = document.createElement("div");
-  joyStick.id = "joystickStick";
-  joyBase.appendChild(joyStick);
-  hud.appendChild(joyBase);
-
-  let active = false;
-  let joyCenter = {x: 0, y: 0};
-
-  function sendKey(key, down) {
-    document.dispatchEvent(new KeyboardEvent(down ? "keydown" : "keyup", {key: key}));
-  }
-
-  function releaseAll() {
-    ["w","a","s","d"].forEach(k => sendKey(k, false));
-  }
-
-  joyBase.addEventListener("touchstart", e => {
-    active = true;
-    const rect = joyBase.getBoundingClientRect();
-    joyCenter = {x: rect.left + rect.width/2, y: rect.top + rect.height/2};
   });
 
-  joyBase.addEventListener("touchmove", e => {
-    if (!active) return;
-    const touch = e.touches[0];
-    const dx = touch.clientX - joyCenter.x;
-    const dy = touch.clientY - joyCenter.y;
-    const dist = Math.min(Math.sqrt(dx*dx+dy*dy), 40);
+  // ======= Joystick =======
+  const joystick = document.createElement("div");
+  joystick.id = "joystick";
+  const stick = document.createElement("div");
+  stick.id = "stick";
+  joystick.appendChild(stick);
+  hud.appendChild(joystick);
 
-    const angle = Math.atan2(dy, dx);
-    joyStick.style.transform = `translate(${Math.cos(angle)*dist}px, ${Math.sin(angle)*dist}px)`;
+  let activeKeys = {w:false,a:false,s:false,d:false};
 
-    releaseAll();
-    if (dy < -20) sendKey("w", true);
-    if (dy > 20) sendKey("s", true);
-    if (dx < -20) sendKey("a", true);
-    if (dx > 20) sendKey("d", true);
+  function setKey(k,state) {
+    if(activeKeys[k]!==state) {
+      triggerKey(k, state?"keydown":"keyup");
+      activeKeys[k] = state;
+    }
+  }
+
+  let center = {x:0,y:0};
+  joystick.addEventListener("touchstart",e=>{
+    const t = e.touches[0];
+    center = {x:t.clientX, y:t.clientY};
   });
 
-  joyBase.addEventListener("touchend", e => {
-    active = false;
-    joyStick.style.transform = `translate(0px,0px)`;
-    releaseAll();
+  joystick.addEventListener("touchmove",e=>{
+    const t = e.touches[0];
+    const dx = t.clientX - center.x;
+    const dy = t.clientY - center.y;
+    const dist = Math.min(60, Math.hypot(dx,dy));
+    const angle = Math.atan2(dy,dx);
+
+    stick.style.transform = `translate(${dx}px,${dy}px)`;
+
+    // Direções
+    setKey("w", dy<-20);
+    setKey("s", dy>20);
+    setKey("a", dx<-20);
+    setKey("d", dx>20);
   });
 
+  joystick.addEventListener("touchend",()=>{
+    stick.style.transform = "translate(-50%,-50%)";
+    setKey("w",false);
+    setKey("a",false);
+    setKey("s",false);
+    setKey("d",false);
+  });
 })();
