@@ -1,168 +1,153 @@
-// == Hordes.io Mobile HUD – fix completo (tap vs hold + joystick WASD) ==
-(function () {
-  // ---------- CONFIG ----------
-  const SCALE = 1.0;          // 0.9–1.1 pra ajustar no Moto G73
-  const JOY_RADIUS = 90;       // raio do analógico (px, antes do SCALE)
-  const DEADZONE = 0.22;       // 0–1 (zona morta do analógico)
-  const HOLD_DELAY = 160;      // ms: tempo pra considerar "segurar" (tap < HOLD_DELAY)
-  const BTN_SIZE = 68, BTN_GAP = 12;
-  const Z = 2147483000;
-
-  // ---------- CSS (sem blur) ----------
-  const css = `
-  #hm-root{position:fixed;inset:0;pointer-events:none;z-index:${Z};}
-  #hm-joy{position:absolute;left:${18*SCALE}px;bottom:${24*SCALE}px;width:${JOY_RADIUS*2*SCALE}px;height:${JOY_RADIUS*2*SCALE}px;pointer-events:auto;touch-action:none;}
-  #hm-joy-base{position:absolute;inset:0;border-radius:50%;background:rgba(255,255,255,.10);border:1px solid rgba(255,255,255,.18);}
-  #hm-joy-knob{position:absolute;width:${JOY_RADIUS*1.1*SCALE}px;height:${JOY_RADIUS*1.1*SCALE}px;border-radius:50%;
-               left:calc(50% - ${JOY_RADIUS*0.55*SCALE}px);top:calc(50% - ${JOY_RADIUS*0.55*SCALE}px);
-               background:rgba(120,110,255,.9);box-shadow:0 4px 14px rgba(0,0,0,.35);}
-  #hm-pads{position:absolute;right:${18*SCALE}px;bottom:${18*SCALE}px;width:${(BTN_SIZE*3+BTN_GAP*2)*SCALE}px;height:${(BTN_SIZE*3+BTN_GAP*2)*SCALE}px;pointer-events:auto;touch-action:none;}
-  .hm-btn{position:absolute;width:${BTN_SIZE*SCALE}px;height:${BTN_SIZE*SCALE}px;border-radius:16px;background:rgba(20,20,20,.62);
-          color:#fff;font-weight:700;font-size:${24*SCALE}px;border:1px solid rgba(255,255,255,.18);
-          display:flex;align-items:center;justify-content:center;user-select:none;-webkit-user-select:none;}
-  .hm-btn:active{transform:scale(.98)}
-  #hm-attack{position:absolute;right:${(BTN_SIZE*3 + BTN_GAP*2 + 26)*SCALE}px;bottom:${26*SCALE}px;
-             width:${(BTN_SIZE*1.25)*SCALE}px;height:${(BTN_SIZE*1.25)*SCALE}px;border-radius:50%;
-             background:rgba(120,110,255,.92);font-size:${28*SCALE}px;border:1px solid rgba(255,255,255,.18);}
-  #hm-toggle{position:absolute;left:${10*SCALE}px;top:${10*SCALE}px;width:${36*SCALE}px;height:${36*SCALE}px;border-radius:10px;
-             background:rgba(0,0,0,.45);color:#fff;font-size:${18*SCALE}px;pointer-events:auto;display:flex;align-items:center;justify-content:center;}
+(function() {
+  // ========== CSS DO HUD ==========
+  const style = document.createElement("style");
+  style.innerHTML = `
+    #mobileHUD {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      pointer-events: none; /* Não bloqueia clique no fundo */
+      z-index: 9999;
+    }
+    .hudButton {
+      pointer-events: auto;
+      position: absolute;
+      width: 64px;
+      height: 64px;
+      border-radius: 12px;
+      background: rgba(0,0,0,0.6);
+      color: white;
+      font-size: 20px;
+      font-weight: bold;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      user-select: none;
+    }
+    #joystickBase {
+      position: absolute;
+      left: 40px;
+      bottom: 40px;
+      width: 120px;
+      height: 120px;
+      border-radius: 50%;
+      background: rgba(0,0,0,0.4);
+      pointer-events: auto;
+      touch-action: none;
+    }
+    #joystickStick {
+      position: absolute;
+      left: 35px;
+      top: 35px;
+      width: 50px;
+      height: 50px;
+      border-radius: 50%;
+      background: rgba(150,150,255,0.9);
+      pointer-events: none;
+    }
   `;
-  const style = document.createElement('style'); style.textContent = css; document.documentElement.appendChild(style);
+  document.head.appendChild(style);
 
-  // ---------- ROOT ----------
-  const root = document.createElement('div'); root.id='hm-root'; document.body.appendChild(root);
+  // ========== HUD ==========
+  const hud = document.createElement("div");
+  hud.id = "mobileHUD";
+  document.body.appendChild(hud);
 
-  // ---------- KEY HELPERS ----------
-  const KC = {W:87,A:65,S:83,D:68,Q:81,E:69,R:82,F:70,_1:49,_2:50,_3:51,_4:52,SPACE:32};
-  const K = {
-    W:{key:'w',code:'KeyW',keyCode:KC.W}, A:{key:'a',code:'KeyA',keyCode:KC.A},
-    S:{key:'s',code:'KeyS',keyCode:KC.S}, D:{key:'d',code:'KeyD',keyCode:KC.D},
-    Q:{key:'q',code:'KeyQ',keyCode:KC.Q}, E:{key:'e',code:'KeyE',keyCode:KC.E},
-    R:{key:'r',code:'KeyR',keyCode:KC.R}, F:{key:'f',code:'KeyF',keyCode:KC.F},
-    '1':{key:'1',code:'Digit1',keyCode:KC._1}, '2':{key:'2',code:'Digit2',keyCode:KC._2},
-    '3':{key:'3',code:'Digit3',keyCode:KC._3}, '4':{key:'4',code:'Digit4',keyCode:KC._4},
-    SPACE:{key:' ',code:'Space',keyCode:KC.SPACE},
-  };
-  const down = new Set();
+  // Botão helper
+  function createButton(label, x, y, key) {
+    const btn = document.createElement("div");
+    btn.className = "hudButton";
+    btn.innerText = label;
+    btn.style.right = x + "px";
+    btn.style.bottom = y + "px";
+    hud.appendChild(btn);
 
-  function emit(type, id){
-    const k = K[id]; if(!k) return;
-    const ev = new KeyboardEvent(type,{key:k.key,code:k.code,keyCode:k.keyCode,which:k.keyCode,bubbles:true,cancelable:true});
-    Object.defineProperty(ev,'keyCode',{get:()=>k.keyCode});
-    Object.defineProperty(ev,'which',{get:()=>k.keyCode});
-    document.dispatchEvent(ev); window.dispatchEvent(ev);
-    const a = document.activeElement; if(a && a!==document.body) a.dispatchEvent(ev);
-  }
-  function hold(id, on){
-    if(on){ if(!down.has(id)){ down.add(id); emit('keydown',id); } }
-    else { if(down.has(id)){ down.delete(id); emit('keyup',id); } }
-  }
-  function quickTap(id, dur=35){ emit('keydown',id); setTimeout(()=>emit('keyup',id), dur); }
+    let holding = false;
+    let interval = null;
 
-  function safeReleaseAll(){ down.forEach(k=>hold(k,false)); }
-  window.addEventListener('pagehide', safeReleaseAll);
-  document.addEventListener('visibilitychange', ()=>{ if(document.hidden) safeReleaseAll(); });
-
-  // ---------- JOYSTICK (WASD) ----------
-  const joy = document.createElement('div'); joy.id='hm-joy';
-  joy.innerHTML = `<div id="hm-joy-base"></div><div id="hm-joy-knob"></div>`;
-  root.appendChild(joy);
-  const base = joy.firstElementChild, knob = joy.lastElementChild;
-  const R = JOY_RADIUS*SCALE; let pid=null, cx=0, cy=0, active=false;
-
-  const releaseWASD = ()=>['W','A','S','D'].forEach(k=>hold(k,false));
-  const setKnob = (dx,dy)=>{ knob.style.left=(R+dx - knob.offsetWidth/2)+'px'; knob.style.top=(R+dy - knob.offsetHeight/2)+'px'; };
-
-  base.addEventListener('pointerdown', e=>{
-    e.preventDefault(); base.setPointerCapture(e.pointerId);
-    const r=base.getBoundingClientRect(); cx=r.left+r.width/2; cy=r.top+r.height/2;
-    pid=e.pointerId; active=true;
-  }, {passive:false});
-
-  base.addEventListener('pointermove', e=>{
-    if(!active || e.pointerId!==pid) return;
-    const x=e.clientX-cx, y=e.clientY-cy;
-    const dist=Math.hypot(x,y); const max=R;
-    const scale = dist>max ? max/dist : 1;
-    const dx=x*scale, dy=y*scale; setKnob(dx,dy);
-
-    const nx=dx/max, ny=dy/max; // -1..1
-    const th=DEADZONE;
-    hold('W', (-ny)>th);
-    hold('S', ( ny)>th);
-    hold('A', (-nx)>th);
-    hold('D', ( nx)>th);
-  }, {passive:false});
-
-  function stopJoy(){ active=false; pid=null; setKnob(0,0); releaseWASD(); }
-  ['pointerup','pointercancel','lostpointercapture','pointerleave'].forEach(ev=>{
-    base.addEventListener(ev, e=>{ if(e.pointerId===pid) stopJoy(); }, {passive:true});
-  });
-
-  // ---------- BOTÕES (tap vs hold) ----------
-  const pads = document.createElement('div'); pads.id='hm-pads'; root.appendChild(pads);
-
-  function makeHoldButton(label, id, col, row, opts={}) {
-    const el = document.createElement('div'); el.className='hm-btn'; el.textContent=label;
-    const s=BTN_SIZE*SCALE, g=BTN_GAP*SCALE;
-    el.style.left=(col*(s+g))+'px'; el.style.top=(row*(s+g))+'px';
-    pads.appendChild(el);
-
-    let t0=0, holdTimer=null, holding=false, pId=null;
-    const downEv = (e)=>{
-      e.preventDefault(); el.setPointerCapture(e.pointerId); pId=e.pointerId;
-      t0=performance.now(); holding=false;
-      holdTimer=setTimeout(()=>{ holding=true; hold(id,true); }, HOLD_DELAY);
+    const pressKey = () => {
+      document.dispatchEvent(new KeyboardEvent("keydown", {key: key}));
     };
-    const upLike = ()=>{
-      clearTimeout(holdTimer);
-      if(holding) hold(id,false);
-      else quickTap(id); // tap curto
-      holding=false; pId=null;
+    const releaseKey = () => {
+      document.dispatchEvent(new KeyboardEvent("keyup", {key: key}));
     };
-    el.addEventListener('pointerdown', downEv, {passive:false});
-    ['pointerup','pointercancel','lostpointercapture','pointerleave'].forEach(ev=>{
-      el.addEventListener(ev, ()=>{ if(pId!==null) upLike(); }, {passive:true});
+
+    btn.addEventListener("touchstart", e => {
+      e.preventDefault();
+      holding = true;
+      pressKey();
+      interval = setInterval(pressKey, 120); // segurar repete
+    });
+
+    btn.addEventListener("touchend", e => {
+      e.preventDefault();
+      holding = false;
+      clearInterval(interval);
+      releaseKey();
     });
   }
 
-  // layout 3x3: (0) 1 2 3 | (1) Q E R | (2) F 4 .
-  makeHoldButton('1','1',0,0);
-  makeHoldButton('2','2',1,0);
-  makeHoldButton('3','3',2,0);
-  makeHoldButton('Q','Q',0,1);
-  makeHoldButton('E','E',1,1);
-  makeHoldButton('R','R',2,1);
-  makeHoldButton('F','F',0,2);
-  makeHoldButton('4','4',1,2);
+  // Criando botões de skills
+  createButton("1", 200, 200, "1");
+  createButton("2", 270, 200, "2");
+  createButton("3", 340, 200, "3");
+  createButton("Q", 200, 120, "q");
+  createButton("E", 270, 120, "e");
+  createButton("R", 340, 120, "r");
+  createButton("F", 200, 40, "f");
+  createButton("4", 270, 40, "4");
 
-  // Ataque (Espaço) – grande e também tap vs hold
-  const attack = document.createElement('div'); attack.id='hm-attack'; attack.className='hm-btn'; attack.textContent='⚔';
-  root.appendChild(attack);
-  (function setupAttack(el){
-    let holdTimer=null, holding=false, pId=null;
-    el.addEventListener('pointerdown', e=>{
-      e.preventDefault(); el.setPointerCapture(e.pointerId); pId=e.pointerId; holding=false;
-      holdTimer=setTimeout(()=>{ holding=true; hold('SPACE',true); }, HOLD_DELAY);
-    }, {passive:false});
-    const end=()=>{ clearTimeout(holdTimer);
-      if(holding) hold('SPACE',false); else quickTap('SPACE');
-      holding=false; pId=null;
-    };
-    ['pointerup','pointercancel','lostpointercapture','pointerleave'].forEach(ev=>{
-      el.addEventListener(ev, ()=>{ if(pId!==null) end(); }, {passive:true});
-    });
-  })(attack);
+  // Botão ataque (espaço)
+  createButton("⚔", 100, 120, " ");
 
-  // ---------- TOGGLE (mostrar/ocultar HUD) ----------
-  const toggle = document.createElement('div'); toggle.id='hm-toggle'; toggle.textContent='☰'; root.appendChild(toggle);
-  let visible=true; toggle.addEventListener('click', ()=>{
-    visible=!visible;
-    joy.style.display = pads.style.display = attack.style.display = visible ? '' : 'none';
-    if(!visible) { stopJoy(); safeReleaseAll(); }
+  // ========== JOYSTICK ==========
+  const joyBase = document.createElement("div");
+  joyBase.id = "joystickBase";
+  const joyStick = document.createElement("div");
+  joyStick.id = "joystickStick";
+  joyBase.appendChild(joyStick);
+  hud.appendChild(joyBase);
+
+  let active = false;
+  let joyCenter = {x: 0, y: 0};
+
+  function sendKey(key, down) {
+    document.dispatchEvent(new KeyboardEvent(down ? "keydown" : "keyup", {key: key}));
+  }
+
+  function releaseAll() {
+    ["w","a","s","d"].forEach(k => sendKey(k, false));
+  }
+
+  joyBase.addEventListener("touchstart", e => {
+    active = true;
+    const rect = joyBase.getBoundingClientRect();
+    joyCenter = {x: rect.left + rect.width/2, y: rect.top + rect.height/2};
   });
 
-  // não bloquear a página fora dos controles
-  // (nenhum preventDefault global; apenas nos elementos do HUD)
-  console.log('[Hordes.io Mobile HUD] carregado.');
+  joyBase.addEventListener("touchmove", e => {
+    if (!active) return;
+    const touch = e.touches[0];
+    const dx = touch.clientX - joyCenter.x;
+    const dy = touch.clientY - joyCenter.y;
+    const dist = Math.min(Math.sqrt(dx*dx+dy*dy), 40);
+
+    const angle = Math.atan2(dy, dx);
+    joyStick.style.transform = `translate(${Math.cos(angle)*dist}px, ${Math.sin(angle)*dist}px)`;
+
+    releaseAll();
+    if (dy < -20) sendKey("w", true);
+    if (dy > 20) sendKey("s", true);
+    if (dx < -20) sendKey("a", true);
+    if (dx > 20) sendKey("d", true);
+  });
+
+  joyBase.addEventListener("touchend", e => {
+    active = false;
+    joyStick.style.transform = `translate(0px,0px)`;
+    releaseAll();
+  });
+
 })();
